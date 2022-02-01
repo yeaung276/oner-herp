@@ -1,7 +1,7 @@
-python -m venv .venv
+python -m venv .venv<br>
 <br>
 window<br>
-.venv/Scripts/activate
+.venv/Scripts/activate<br>
 <br>
 linux<br>
 source .venv/bin/activate<br>
