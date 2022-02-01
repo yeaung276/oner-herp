@@ -1,0 +1,78 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python application
+
+on:
+  push:
+    branches: [ develop ]
+
+jobs:
+  build:
+    name: build
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    # - name: Test with pytest
+    #   run: |
+    #     pytest
+
+  deploy:
+
+    runs-on: self-hosted
+    needs: build
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: create env file
+      run: |
+        touch ./src/.env
+        echo ENVIRONMENT= 'DEVELOPMENT'>> ./src/.env
+        echo JWT_ALGORITHM='HS256' >> ./src/.env
+        echo JWT_EXPIRY_MINUTE=30 >> ./src/.env
+        echo ROOT_PATH='/api' >> ./src/.env
+        echo PORT=8082 >> ./src/.env
+        echo SENTRY_DNS='${{secrets.SENTRY_DNS}}' >> ./src/.env
+        echo JWT_SECRET_KEY='${{secrets.JWT_SECRET_KEY}}' >> ./src/.env
+        echo SQLALCHEMY_DATABASE_URL='${{secrets.DEV_SQLALCHEMY_DATABASE_URL}}' >> ./src/.env
+        cat ./src/.env
+
+    - name: clear staged folder
+      run: rm -rf /home/yinsien/Deployments/oner-python/staged/
+
+    - name: copy .env and requirement file
+      run: |
+          cp ./src/.env /home/yinsein/Deployments/oner-python/staged/
+          cp ./requirements.txt /home/yinsein/Deployments/oner-python/staged/
+
+    
+    - name: staged
+      run: |
+        cp -r ./src/* /home/yinsein/Deployments/oner-python/staged
+
+    - name: activate env, install requirement and migrate
+      run: |
+        cd /home/yinsein/Deployments/oner-python/
+        source .venv/bin/activate
+        cd staged
+        pip install -r requirements.txt
+        alembic upgrade head
+
